@@ -68,6 +68,29 @@ cargo run
 The daemon will create its database at
 `~/.local/share/scremetime/data.db` on first run.
 
+## Enabling app focus tracking
+
+App level tracking needs the companion GNOME Shell extension in
+gnome-extension/. Install it by linking or copying that folder into
+GNOME's extensions directory under its uuid, then enable it:
+
+```
+ln -s "$(pwd)/gnome-extension" ~/.local/share/gnome-shell/extensions/scremetime@ahamedham.github.io
+```
+
+GNOME Shell only scans for newly added extensions at login, so after
+this you need to log out and back in (there is no in place shell restart
+on Wayland), then run:
+
+```
+gnome-extensions enable scremetime@ahamedham.github.io
+```
+
+Without this step, the daemon still runs and still collects everything
+else. It logs a message saying app focus tracking is unavailable and
+picks it up automatically later if you enable the extension while the
+daemon keeps running.
+
 ## Data and privacy
 
 Everything scremetime collects is stored locally on your machine, in a

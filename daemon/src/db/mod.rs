@@ -92,3 +92,52 @@ pub fn insert_system_sample(conn: &Connection, sample: &SystemSample) -> rusqlit
     )?;
     Ok(())
 }
+
+/// Opens a new app session and returns its row id, so the caller can
+/// close it off later with end_app_session once the app loses focus.
+pub fn start_app_session(conn: &Connection, app_name: &str, start_time: i64) -> rusqlite::Result<i64> {
+    conn.execute(
+        "INSERT INTO app_sessions (app_name, start_time) VALUES (?1, ?2)",
+        params![app_name, start_time],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn end_app_session(conn: &Connection, session_id: i64, end_time: i64) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE app_sessions SET end_time = ?1, duration_seconds = ?1 - start_time WHERE id = ?2",
+        params![end_time, session_id],
+    )?;
+    Ok(())
+}
+
+pub fn insert_idle_event(conn: &Connection, timestamp: i64, event_type: &str) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT INTO idle_events (timestamp, event_type) VALUES (?1, ?2)",
+        params![timestamp, event_type],
+    )?;
+    Ok(())
+}
+
+pub struct DiskIoSample {
+    pub timestamp: i64,
+    pub pid: i32,
+    pub process_name: String,
+    pub read_bytes: i64,
+    pub write_bytes: i64,
+}
+
+pub fn insert_disk_io_sample(conn: &Connection, sample: &DiskIoSample) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT INTO disk_io_samples (timestamp, pid, process_name, read_bytes, write_bytes)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![
+            sample.timestamp,
+            sample.pid,
+            sample.process_name,
+            sample.read_bytes,
+            sample.write_bytes,
+        ],
+    )?;
+    Ok(())
+}

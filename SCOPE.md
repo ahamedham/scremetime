@@ -95,8 +95,62 @@ for tracking checklist-style progress at a glance.
   tokio intervals (battery every 5s, system every 3s while testing) running
   concurrently in one task via tokio::select!, no extra OS threads. Confirmed
   working by running the daemon and reading real rows back from both tables.
-- Current step: decide next collector to build (idle/lock events, disk I/O,
-  or the GNOME extension for app focus tracking).
-- Not started: idle_events, disk_io_samples collectors, the GNOME Shell
-  extension, CLI to query data, all UI phases (Phase 2-4), packaging/open
-  source polish (Phase 5), keyring-backed encryption at rest.
+  Disk I/O collector added (daemon/src/collectors/disk_io.rs), polling
+  /proc/<pid>/io for every process and storing deltas since the last poll
+  rather than the kernel's cumulative counters, and only when nonzero, so
+  idle processes do not fill the database. Verified with a real 20MB dd
+  write showing up as an exact byte-accurate row attributed to the correct
+  process.
+- GitHub repo created and pushed: https://github.com/ahamedham/scremetime,
+  public, Apache 2.0 license (chosen 2026-09-01 since this repo is meant to
+  be genuinely open source, unlike the "portfolio only" convention used for
+  other repos in [[project-portfolio-cv-launch]]). README and ROADMAP written
+  to be public facing.
+  Idle/lock/suspend collector added (daemon/src/collectors/idle.rs), first
+  use of D-Bus in the project via the zbus crate. Idle time polls GNOME
+  Mutter's IdleMonitor (GNOME specific, accepted since app tracking already
+  needs GNOME Shell). Lock/unlock listens for org.gnome.ScreenSaver's
+  ActiveChanged signal. Suspend/resume listens for systemd-logind's
+  PrepareForSleep signal on the system bus (deliberately not GNOME
+  specific, since logind is present on effectively all modern Linux
+  distributions). Verified for real: the daemon correctly detected genuine
+  idle_start after the user had been away from keyboard and mouse for over
+  60 seconds, no artificial test needed.
+  GNOME Shell extension written (gnome-extension/extension.js, GNOME 45+
+  ES module style for GNOME Shell 46, confirmed the local shell version).
+  Watches Shell.WindowTracker's focus-app property (gives a stable app id
+  directly, no window title parsing needed) and exports it over D-Bus
+  under GNOME Shell's own existing bus name, at
+  /org/gnome/Shell/Extensions/Scremetime. Rust side added
+  (daemon/src/collectors/app_focus.rs) plus app_sessions start/end
+  functions in db/mod.rs and wiring in main.rs, including graceful
+  degradation: if the extension is not enabled, the daemon logs a clear
+  message and keeps running every other collector rather than crashing,
+  and the D-Bus signal subscription stays valid so app tracking picks up
+  automatically later without a daemon restart if the extension gets
+  enabled afterward.
+- Blocked on a session restart: GNOME Shell only scans for brand new
+  extension UUIDs at login, not while the session is running, and Wayland
+  has no in-place shell restart like X11 did. Confirmed this by installing
+  the extension (symlinked into
+  ~/.local/share/gnome-shell/extensions/scremetime@ahamedham.github.io)
+  and finding gnome-extensions and the shell's own GetExtensionInfo D-Bus
+  call both report it as not found while the session stays live. Verified
+  the daemon's graceful degradation path handles this correctly: it prints
+  a clear "not enabled yet" message and every other collector keeps
+  working. Did not log the user out to force a test, since that would
+  close their active session and open windows without asking first.
+- Current step: user needs to log out and back in (or reboot) at a time
+  that suits them, then run `gnome-extensions enable
+  scremetime@ahamedham.github.io` and restart the daemon to verify real
+  app focus tracking end to end. Everything else in Phase 1 is complete
+  and already verified.
+- Not started: CLI to query data, all UI phases (Phase 2-4),
+  packaging/open source polish (Phase 5), keyring-backed encryption at
+  rest.
+- Ground rule reaffirmed 2026-09-01: user asked to "do everything" per the
+  roadmap in one go; pushed back and agreed instead to keep building at a
+  steady pace without re-confirming small steps, but still pause at real
+  architecture forks (GUI toolkit choice, web stack choice) and is already
+  proceeding through Phase 1 collectors and the initial GitHub push under
+  that agreement.

@@ -1,0 +1,7 @@
+{
+  "uuid": "scremetime@ahamedham.github.io",
+  "name": "scremetime app tracker",
+  "description": "Reports the currently focused application over D-Bus so the scremetime daemon can record app usage. Does not collect or store anything itself.",
+  "shell-version": ["45", "46", "47"],
+  "url": "https://github.com/ahamedham/scremetime"
+}

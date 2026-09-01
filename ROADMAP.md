@@ -15,10 +15,12 @@ minimal resource use. Stores everything locally in a SQLite database.
 - [x] Battery collector: charge percentage, charging state, power draw,
       time to empty or full, read directly from Linux battery hardware info
 - [x] CPU and memory collector
-- [ ] Idle time and lock or suspend or resume event collector
-- [ ] Disk I/O collector, per process read and write throughput
-- [ ] GNOME Shell extension for app focus tracking, since Wayland does not
-      allow a normal background process to see which window is focused
+- [x] Disk I/O collector, per process read and write throughput
+- [x] Idle time and lock or suspend or resume event collector
+- [x] GNOME Shell extension for app focus tracking, since Wayland does not
+      allow a normal background process to see which window is focused.
+      Code complete, verification pending a session restart so GNOME Shell
+      loads the new extension.
 - [ ] Command line tool to inspect collected data directly
 
 Deferred out of Phase 1: per process network I/O. The accurate method
