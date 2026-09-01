@@ -141,3 +141,119 @@ pub fn insert_disk_io_sample(conn: &Connection, sample: &DiskIoSample) -> rusqli
     )?;
     Ok(())
 }
+
+// Read side, used by the CLI to inspect what the daemon has collected.
+
+/// Total seconds spent in each app, most used first. Only counts sessions
+/// that have actually closed (duration_seconds is set); a session still
+/// open when this runs is not yet included in its app's total.
+pub fn app_usage_totals(conn: &Connection, since: Option<i64>) -> rusqlite::Result<Vec<(String, i64)>> {
+    let mut stmt = conn.prepare(
+        "SELECT app_name, SUM(duration_seconds) AS total
+         FROM app_sessions
+         WHERE duration_seconds IS NOT NULL AND start_time >= ?1
+         GROUP BY app_name
+         ORDER BY total DESC",
+    )?;
+    let rows = stmt
+        .query_map(params![since.unwrap_or(0)], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+pub struct BatteryRow {
+    pub timestamp: i64,
+    pub percentage: i64,
+    pub state: String,
+    pub power_draw_watts: Option<f64>,
+}
+
+pub fn recent_battery_samples(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<BatteryRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT timestamp, percentage, state, power_draw_watts
+         FROM battery_samples ORDER BY timestamp DESC LIMIT ?1",
+    )?;
+    let rows = stmt
+        .query_map(params![limit], |row| {
+            Ok(BatteryRow {
+                timestamp: row.get(0)?,
+                percentage: row.get(1)?,
+                state: row.get(2)?,
+                power_draw_watts: row.get(3)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+pub struct SystemRow {
+    pub timestamp: i64,
+    pub cpu_percent: f64,
+    pub mem_used_bytes: i64,
+    pub mem_total_bytes: i64,
+}
+
+pub fn recent_system_samples(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<SystemRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT timestamp, cpu_percent, mem_used_bytes, mem_total_bytes
+         FROM system_samples ORDER BY timestamp DESC LIMIT ?1",
+    )?;
+    let rows = stmt
+        .query_map(params![limit], |row| {
+            Ok(SystemRow {
+                timestamp: row.get(0)?,
+                cpu_percent: row.get(1)?,
+                mem_used_bytes: row.get(2)?,
+                mem_total_bytes: row.get(3)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+pub struct DiskIoRow {
+    pub timestamp: i64,
+    pub process_name: String,
+    pub read_bytes: i64,
+    pub write_bytes: i64,
+}
+
+pub fn recent_disk_io_samples(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<DiskIoRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT timestamp, process_name, read_bytes, write_bytes
+         FROM disk_io_samples ORDER BY timestamp DESC LIMIT ?1",
+    )?;
+    let rows = stmt
+        .query_map(params![limit], |row| {
+            Ok(DiskIoRow {
+                timestamp: row.get(0)?,
+                process_name: row.get(1)?,
+                read_bytes: row.get(2)?,
+                write_bytes: row.get(3)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+pub struct IdleEventRow {
+    pub timestamp: i64,
+    pub event_type: String,
+}
+
+pub fn recent_idle_events(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<IdleEventRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT timestamp, event_type FROM idle_events ORDER BY timestamp DESC LIMIT ?1",
+    )?;
+    let rows = stmt
+        .query_map(params![limit], |row| {
+            Ok(IdleEventRow {
+                timestamp: row.get(0)?,
+                event_type: row.get(1)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}

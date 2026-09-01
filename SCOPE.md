@@ -140,14 +140,21 @@ for tracking checklist-style progress at a glance.
   a clear "not enabled yet" message and every other collector keeps
   working. Did not log the user out to force a test, since that would
   close their active session and open windows without asking first.
-- Current step: user needs to log out and back in (or reboot) at a time
-  that suits them, then run `gnome-extensions enable
-  scremetime@ahamedham.github.io` and restart the daemon to verify real
-  app focus tracking end to end. Everything else in Phase 1 is complete
-  and already verified.
-- Not started: CLI to query data, all UI phases (Phase 2-4),
-  packaging/open source polish (Phase 5), keyring-backed encryption at
-  rest.
+  CLI added (daemon/src/bin/cli.rs, binary name "scremetime"). Restructured
+  the crate into a library (daemon/src/lib.rs exposing collectors and db)
+  plus two binaries (scremetime-daemon and scremetime) so both can share
+  the same database code, standard Rust pattern for this shape of project.
+  Read side query functions added to db/mod.rs: app usage totals, recent
+  battery/system/disk/idle rows. Verified against the real data collected
+  so far: apps, battery, system, disk, and idle subcommands all print
+  correctly formatted real rows (apps correctly reports none yet, since
+  that is still pending the extension).
+- Phase 1 is now code complete. Only remaining step: user needs to log out
+  and back in (or reboot) at a time that suits them, then run
+  `gnome-extensions enable scremetime@ahamedham.github.io` and restart the
+  daemon to verify real app focus tracking end to end.
+- Not started: all UI phases (Phase 2-4), packaging/open source polish
+  (Phase 5), keyring-backed encryption at rest.
 - Ground rule reaffirmed 2026-09-01: user asked to "do everything" per the
   roadmap in one go; pushed back and agreed instead to keep building at a
   steady pace without re-confirming small steps, but still pause at real

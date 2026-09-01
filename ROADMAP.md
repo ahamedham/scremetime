@@ -21,7 +21,7 @@ minimal resource use. Stores everything locally in a SQLite database.
       allow a normal background process to see which window is focused.
       Code complete, verification pending a session restart so GNOME Shell
       loads the new extension.
-- [ ] Command line tool to inspect collected data directly
+- [x] Command line tool to inspect collected data directly
 
 Deferred out of Phase 1: per process network I/O. The accurate method
 (eBPF) needs elevated privileges, a real barrier for an open source tool

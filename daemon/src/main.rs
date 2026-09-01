@@ -1,11 +1,12 @@
-mod collectors;
-mod db;
-
-use collectors::app_focus::app_focus_proxy;
-use collectors::disk_io::DiskIoCollector;
-use collectors::idle::{login_manager_proxy, screen_saver_proxy, IdleEvent, IdleWatcher};
-use collectors::system::SystemCollector;
 use futures_util::StreamExt;
+use scremetime_daemon::collectors::app_focus::app_focus_proxy;
+use scremetime_daemon::collectors::disk_io::DiskIoCollector;
+use scremetime_daemon::collectors::idle::{
+    login_manager_proxy, screen_saver_proxy, IdleEvent, IdleWatcher,
+};
+use scremetime_daemon::collectors::system::SystemCollector;
+use scremetime_daemon::collectors::battery;
+use scremetime_daemon::db;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use zbus::Connection;
 
@@ -113,7 +114,7 @@ async fn main() {
     loop {
         tokio::select! {
             _ = battery_interval.tick() => {
-                match collectors::battery::read_battery() {
+                match battery::read_battery() {
                     Some(reading) => {
                         let sample = db::BatterySample {
                             timestamp: unix_now(),

@@ -91,6 +91,18 @@ else. It logs a message saying app focus tracking is unavailable and
 picks it up automatically later if you enable the extension while the
 daemon keeps running.
 
+## Inspecting collected data
+
+A small CLI reads from the same database:
+
+```
+cargo run --bin scremetime -- apps
+cargo run --bin scremetime -- battery --limit 10
+cargo run --bin scremetime -- system --limit 10
+cargo run --bin scremetime -- disk --limit 10
+cargo run --bin scremetime -- idle
+```
+
 ## Data and privacy
 
 Everything scremetime collects is stored locally on your machine, in a
