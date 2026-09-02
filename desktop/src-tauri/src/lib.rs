@@ -19,6 +19,12 @@ struct AppUsage {
 }
 
 #[derive(Serialize)]
+struct DailyUsage {
+    day: String,
+    total_seconds: i64,
+}
+
+#[derive(Serialize)]
 struct BatterySample {
     timestamp: i64,
     percentage: i64,
@@ -43,6 +49,18 @@ fn get_app_usage(state: State<AppState>, period: String) -> Result<Vec<AppUsage>
                     app_name,
                     total_seconds,
                 })
+                .collect()
+        })
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_daily_usage(state: State<AppState>, days: u32) -> Result<Vec<DailyUsage>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    db::daily_usage_totals(&conn, days)
+        .map(|rows| {
+            rows.into_iter()
+                .map(|(day, total_seconds)| DailyUsage { day, total_seconds })
                 .collect()
         })
         .map_err(|e| e.to_string())
@@ -93,6 +111,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_app_usage,
+            get_daily_usage,
             get_battery_samples,
             get_idle_events,
         ])

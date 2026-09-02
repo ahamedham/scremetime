@@ -119,6 +119,28 @@ pub fn app_usage_totals(conn: &Connection, since: Option<i64>) -> rusqlite::Resu
     Ok(rows)
 }
 
+/// Total seconds spent using apps, one row per calendar day (local
+/// timezone), for the last `days` days including today. Used for the day
+/// by day bar chart in the desktop app. Days with no usage are not
+/// included; the caller fills gaps if it needs a fixed number of bars.
+pub fn daily_usage_totals(conn: &Connection, days: u32) -> rusqlite::Result<Vec<(String, i64)>> {
+    let mut stmt = conn.prepare(
+        "SELECT strftime('%Y-%m-%d', start_time, 'unixepoch', 'localtime') AS day,
+                SUM(duration_seconds) AS total
+         FROM app_sessions
+         WHERE duration_seconds IS NOT NULL
+           AND start_time >= strftime('%s', 'now', 'localtime', '-' || ?1 || ' days', 'start of day', 'utc')
+         GROUP BY day
+         ORDER BY day ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![days], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
 pub struct BatteryRow {
     pub timestamp: i64,
     pub percentage: i64,

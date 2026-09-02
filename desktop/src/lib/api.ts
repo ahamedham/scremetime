@@ -7,6 +7,11 @@ export interface AppUsage {
   total_seconds: number;
 }
 
+export interface DailyUsage {
+  day: string;
+  total_seconds: number;
+}
+
 export interface BatterySample {
   timestamp: number;
   percentage: number;
@@ -21,6 +26,10 @@ export interface IdleEvent {
 
 export function getAppUsage(period: Period): Promise<AppUsage[]> {
   return invoke("get_app_usage", { period });
+}
+
+export function getDailyUsage(days: number): Promise<DailyUsage[]> {
+  return invoke("get_daily_usage", { days });
 }
 
 export function getBatterySamples(limit: number): Promise<BatterySample[]> {
