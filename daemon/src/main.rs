@@ -1,11 +1,9 @@
 use futures_util::StreamExt;
 use scremetime_daemon::collectors::app_focus::app_focus_proxy;
-use scremetime_daemon::collectors::disk_io::DiskIoCollector;
+use scremetime_daemon::collectors::battery;
 use scremetime_daemon::collectors::idle::{
     login_manager_proxy, screen_saver_proxy, IdleEvent, IdleWatcher,
 };
-use scremetime_daemon::collectors::system::SystemCollector;
-use scremetime_daemon::collectors::battery;
 use scremetime_daemon::db;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use zbus::Connection;
@@ -14,8 +12,6 @@ use zbus::Connection;
 // these into a proper config file once more collectors exist and revisit
 // what interval is actually efficient for each one.
 const BATTERY_POLL_INTERVAL: Duration = Duration::from_secs(5);
-const SYSTEM_POLL_INTERVAL: Duration = Duration::from_secs(3);
-const DISK_IO_POLL_INTERVAL: Duration = Duration::from_secs(5);
 const IDLE_POLL_INTERVAL: Duration = Duration::from_secs(5);
 
 fn unix_now() -> i64 {
@@ -42,10 +38,6 @@ async fn main() {
     );
 
     let mut battery_interval = tokio::time::interval(BATTERY_POLL_INTERVAL);
-    let mut system_interval = tokio::time::interval(SYSTEM_POLL_INTERVAL);
-    let mut system_collector = SystemCollector::new();
-    let mut disk_io_interval = tokio::time::interval(DISK_IO_POLL_INTERVAL);
-    let mut disk_io_collector = DiskIoCollector::new();
 
     // Idle time and screen lock come from GNOME's session bus services.
     // Suspend/resume comes from systemd-logind on the system bus, which is
@@ -138,44 +130,6 @@ async fn main() {
                         }
                     }
                     None => eprintln!("could not read battery info from this system"),
-                }
-            }
-            _ = system_interval.tick() => {
-                let reading = system_collector.read();
-                let sample = db::SystemSample {
-                    timestamp: unix_now(),
-                    cpu_percent: reading.cpu_percent as f64,
-                    mem_used_bytes: reading.mem_used_bytes as i64,
-                    mem_total_bytes: reading.mem_total_bytes as i64,
-                };
-                match db::insert_system_sample(&conn, &sample) {
-                    Ok(()) => println!(
-                        "system: cpu {:.1}%, mem {:.1}/{:.1} GB",
-                        reading.cpu_percent,
-                        reading.mem_used_bytes as f64 / 1_073_741_824.0,
-                        reading.mem_total_bytes as f64 / 1_073_741_824.0
-                    ),
-                    Err(e) => eprintln!("failed to write system sample: {e}"),
-                }
-            }
-            _ = disk_io_interval.tick() => {
-                let readings = disk_io_collector.read();
-                let mut written = 0;
-                for reading in &readings {
-                    let sample = db::DiskIoSample {
-                        timestamp: unix_now(),
-                        pid: reading.pid,
-                        process_name: reading.process_name.clone(),
-                        read_bytes: reading.read_bytes as i64,
-                        write_bytes: reading.write_bytes as i64,
-                    };
-                    match db::insert_disk_io_sample(&conn, &sample) {
-                        Ok(()) => written += 1,
-                        Err(e) => eprintln!("failed to write disk io sample: {e}"),
-                    }
-                }
-                if written > 0 {
-                    println!("disk io: {written} process(es) with activity");
                 }
             }
             _ = idle_interval.tick() => {

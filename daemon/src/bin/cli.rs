@@ -1,6 +1,7 @@
 use chrono::{DateTime, Local, TimeZone};
 use clap::{Parser, Subcommand};
 use scremetime_daemon::db;
+use scremetime_daemon::time_util::Period;
 
 #[derive(Parser)]
 #[command(name = "scremetime", about = "Inspect data collected by the scremetime daemon")]
@@ -13,22 +14,12 @@ struct Cli {
 enum Command {
     /// App usage totals, most used first
     Apps {
-        /// Only include sessions that started today
-        #[arg(long)]
-        today: bool,
+        /// Reporting period: today, week, month, or all
+        #[arg(long, default_value = "all")]
+        period: String,
     },
     /// Recent battery samples
     Battery {
-        #[arg(long, default_value_t = 20)]
-        limit: u32,
-    },
-    /// Recent CPU and memory samples
-    System {
-        #[arg(long, default_value_t = 20)]
-        limit: u32,
-    },
-    /// Recent disk I/O activity
-    Disk {
         #[arg(long, default_value_t = 20)]
         limit: u32,
     },
@@ -60,36 +51,15 @@ fn format_duration(seconds: i64) -> String {
     }
 }
 
-fn format_bytes(bytes: i64) -> String {
-    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
-    let mut value = bytes as f64;
-    let mut unit = 0;
-    while value >= 1024.0 && unit < UNITS.len() - 1 {
-        value /= 1024.0;
-        unit += 1;
-    }
-    format!("{value:.1} {}", UNITS[unit])
-}
-
-fn today_start_timestamp() -> i64 {
-    Local::now()
-        .date_naive()
-        .and_hms_opt(0, 0, 0)
-        .expect("midnight is a valid time")
-        .and_local_timezone(Local)
-        .single()
-        .expect("today's midnight is unambiguous in the local timezone")
-        .timestamp()
-}
-
 fn main() {
     let cli = Cli::parse();
     let conn = db::open().expect("failed to open database");
 
     match cli.command {
-        Command::Apps { today } => {
-            let since = today.then(today_start_timestamp);
-            let totals = db::app_usage_totals(&conn, since).expect("query failed");
+        Command::Apps { period } => {
+            let period = Period::parse(&period)
+                .unwrap_or_else(|| panic!("unknown period '{period}', expected today, week, month, or all"));
+            let totals = db::app_usage_totals(&conn, period.since()).expect("query failed");
             if totals.is_empty() {
                 println!("no completed app sessions recorded yet");
             }
@@ -110,30 +80,6 @@ fn main() {
                     row.percentage,
                     row.state,
                     watts
-                );
-            }
-        }
-        Command::System { limit } => {
-            let rows = db::recent_system_samples(&conn, limit).expect("query failed");
-            for row in rows {
-                println!(
-                    "{}  cpu {:>5.1}%  mem {} / {}",
-                    format_timestamp(row.timestamp),
-                    row.cpu_percent,
-                    format_bytes(row.mem_used_bytes),
-                    format_bytes(row.mem_total_bytes)
-                );
-            }
-        }
-        Command::Disk { limit } => {
-            let rows = db::recent_disk_io_samples(&conn, limit).expect("query failed");
-            for row in rows {
-                println!(
-                    "{}  {:<20}  read {}  write {}",
-                    format_timestamp(row.timestamp),
-                    row.process_name,
-                    format_bytes(row.read_bytes),
-                    format_bytes(row.write_bytes)
                 );
             }
         }

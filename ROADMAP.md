@@ -4,6 +4,16 @@ This document describes the planned direction of scremetime, phase by phase.
 Detailed day to day working notes and decisions live in SCOPE.md. This file
 is the higher level picture.
 
+## Scope
+
+scremetime tracks two things: app level screen time and battery. CPU,
+memory, and disk I/O tracking were built during Phase 1 and then removed
+by deliberate decision: this project is a screen time and battery
+tracker, not a general system resource monitor. Idle time and screen
+lock or suspend and resume detection stay in scope, since they support
+accurate screen time accounting (knowing when you have stepped away)
+rather than being general system stats.
+
 ## Phase 1: Data collection daemon
 
 The background service that gathers everything. Written in Rust for
@@ -14,8 +24,6 @@ minimal resource use. Stores everything locally in a SQLite database.
 - [x] Owner only file permissions on the database and its directory
 - [x] Battery collector: charge percentage, charging state, power draw,
       time to empty or full, read directly from Linux battery hardware info
-- [x] CPU and memory collector
-- [x] Disk I/O collector, per process read and write throughput
 - [x] Idle time and lock or suspend or resume event collector
 - [x] GNOME Shell extension for app focus tracking, since Wayland does not
       allow a normal background process to see which window is focused.
@@ -23,22 +31,29 @@ minimal resource use. Stores everything locally in a SQLite database.
       loads the new extension.
 - [x] Command line tool to inspect collected data directly
 
-Deferred out of Phase 1: per process network I/O. The accurate method
-(eBPF) needs elevated privileges, a real barrier for an open source tool
-other people install. Revisit this once the rest of the daemon is stable.
+Built and then removed (see Scope above): CPU and memory collector,
+disk I/O collector, and their CLI and desktop app views.
+
+Deferred: per process network I/O. The accurate method (eBPF) needs
+elevated privileges, a real barrier for an open source tool other people
+install. Also out of scope now given the battery/screen time focus above,
+so unlikely to be revisited unless that focus changes.
 
 ## Phase 2: Desktop GUI
 
 A native desktop application, styled after macOS Screen Time, for viewing
-the collected data.
+the collected data. Built with Tauri (Rust backend, React and TypeScript
+frontend), chosen for full control over the visual design.
 
-- [ ] Choose a GUI toolkit
-- [ ] Daily, weekly, monthly, and all time view of app usage
-- [ ] Battery history and analytics view
-- [ ] System resource history view
-- [ ] Simple default view for a general audience
-- [ ] Nerd mode setting: toggle to reveal the underlying detailed data,
+- [x] Choose a GUI toolkit: Tauri plus React and TypeScript
+- [x] Daily, weekly, monthly, and all time view of app usage
+- [x] Battery status view
+- [x] Simple default view for a general audience
+- [x] Nerd mode setting: toggle to reveal the underlying detailed data,
       exact timestamps, and raw sample values
+- [ ] App icons instead of plain text names
+- [ ] Visual polish pass once the core views are confirmed working end
+      to end with real data
 
 ## Phase 3: Web dashboard
 
@@ -64,7 +79,7 @@ Getting the project ready for other people to install and use, and for
 public release on GitHub.
 
 - [ ] Installation instructions for common Linux distributions
-- [ ] LICENSE
+- [x] LICENSE
 - [ ] CONTRIBUTING guide
 - [ ] README with screenshots and a clear description of what the project
       does and why it was built
@@ -74,7 +89,5 @@ public release on GitHub.
 
 ## Ideas under consideration, not yet scheduled
 
-- Per process network I/O via eBPF, once the privilege and installation
-  question has a good answer
 - Export or backup of collected data
 - Configurable polling intervals per collector

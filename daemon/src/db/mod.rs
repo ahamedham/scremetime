@@ -72,27 +72,6 @@ pub fn insert_battery_sample(conn: &Connection, sample: &BatterySample) -> rusql
     Ok(())
 }
 
-pub struct SystemSample {
-    pub timestamp: i64,
-    pub cpu_percent: f64,
-    pub mem_used_bytes: i64,
-    pub mem_total_bytes: i64,
-}
-
-pub fn insert_system_sample(conn: &Connection, sample: &SystemSample) -> rusqlite::Result<()> {
-    conn.execute(
-        "INSERT INTO system_samples (timestamp, cpu_percent, mem_used_bytes, mem_total_bytes)
-         VALUES (?1, ?2, ?3, ?4)",
-        params![
-            sample.timestamp,
-            sample.cpu_percent,
-            sample.mem_used_bytes,
-            sample.mem_total_bytes,
-        ],
-    )?;
-    Ok(())
-}
-
 /// Opens a new app session and returns its row id, so the caller can
 /// close it off later with end_app_session once the app loses focus.
 pub fn start_app_session(conn: &Connection, app_name: &str, start_time: i64) -> rusqlite::Result<i64> {
@@ -115,29 +94,6 @@ pub fn insert_idle_event(conn: &Connection, timestamp: i64, event_type: &str) ->
     conn.execute(
         "INSERT INTO idle_events (timestamp, event_type) VALUES (?1, ?2)",
         params![timestamp, event_type],
-    )?;
-    Ok(())
-}
-
-pub struct DiskIoSample {
-    pub timestamp: i64,
-    pub pid: i32,
-    pub process_name: String,
-    pub read_bytes: i64,
-    pub write_bytes: i64,
-}
-
-pub fn insert_disk_io_sample(conn: &Connection, sample: &DiskIoSample) -> rusqlite::Result<()> {
-    conn.execute(
-        "INSERT INTO disk_io_samples (timestamp, pid, process_name, read_bytes, write_bytes)
-         VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![
-            sample.timestamp,
-            sample.pid,
-            sample.process_name,
-            sample.read_bytes,
-            sample.write_bytes,
-        ],
     )?;
     Ok(())
 }
@@ -182,56 +138,6 @@ pub fn recent_battery_samples(conn: &Connection, limit: u32) -> rusqlite::Result
                 percentage: row.get(1)?,
                 state: row.get(2)?,
                 power_draw_watts: row.get(3)?,
-            })
-        })?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    Ok(rows)
-}
-
-pub struct SystemRow {
-    pub timestamp: i64,
-    pub cpu_percent: f64,
-    pub mem_used_bytes: i64,
-    pub mem_total_bytes: i64,
-}
-
-pub fn recent_system_samples(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<SystemRow>> {
-    let mut stmt = conn.prepare(
-        "SELECT timestamp, cpu_percent, mem_used_bytes, mem_total_bytes
-         FROM system_samples ORDER BY timestamp DESC LIMIT ?1",
-    )?;
-    let rows = stmt
-        .query_map(params![limit], |row| {
-            Ok(SystemRow {
-                timestamp: row.get(0)?,
-                cpu_percent: row.get(1)?,
-                mem_used_bytes: row.get(2)?,
-                mem_total_bytes: row.get(3)?,
-            })
-        })?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    Ok(rows)
-}
-
-pub struct DiskIoRow {
-    pub timestamp: i64,
-    pub process_name: String,
-    pub read_bytes: i64,
-    pub write_bytes: i64,
-}
-
-pub fn recent_disk_io_samples(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<DiskIoRow>> {
-    let mut stmt = conn.prepare(
-        "SELECT timestamp, process_name, read_bytes, write_bytes
-         FROM disk_io_samples ORDER BY timestamp DESC LIMIT ?1",
-    )?;
-    let rows = stmt
-        .query_map(params![limit], |row| {
-            Ok(DiskIoRow {
-                timestamp: row.get(0)?,
-                process_name: row.get(1)?,
-                read_bytes: row.get(2)?,
-                write_bytes: row.get(3)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;

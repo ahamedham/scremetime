@@ -1,10 +1,22 @@
 # scremetime - scope tracking
 
 ## Goal
-A fully featured, open source Linux system activity tracker for a GitHub/CV portfolio.
-Tracks app level screen time with timestamps, battery consumption, and deep system
-activity data. Three UI surfaces planned: macOS style native GUI, web dashboard,
-system tray widget. Efficient, real time, local storage.
+An open source Linux screen time and battery tracker for a GitHub/CV portfolio.
+Tracks app level screen time with timestamps and battery consumption. Three UI
+surfaces planned: macOS style native GUI, web dashboard, system tray widget.
+Efficient, real time, local storage.
+
+Scope narrowed 2026-09-02: CPU, memory, and disk I/O tracking were built during
+Phase 1 (system.rs and disk_io.rs collectors, their database tables, CLI
+subcommands, and desktop app panels) and then removed by explicit user
+decision: "i dont want records of the cpu, memory usage and all. only battery,
+screen time." Idle time and lock/suspend/resume detection were kept, since
+they support accurate screen time accounting (detecting when the user has
+stepped away) rather than being general system resource stats, which is what
+the user was actually objecting to. See ROADMAP.md's Scope section for the
+user facing version of this decision. All code and already collected data for
+the removed collectors was deleted, not just disabled, per the user's explicit
+choice when asked.
 
 ## Ground rules (do not drift from these)
 - Explain as we build. Claude writes the code but narrates architecture decisions,
@@ -84,7 +96,7 @@ working log; ROADMAP.md is the polished version for GitHub visitors and
 for tracking checklist-style progress at a glance.
 
 ## Status
-- Phase: 1, data collection daemon.
+- Phase: 2, desktop GUI (Tauri + React + TypeScript). Phase 1 code complete.
 - Done: SQLite schema (all 5 Phase 1 tables) created via daemon/src/db/schema.sql.
   Database connection setup with WAL mode and owner-only file permissions
   (daemon/src/db/mod.rs). Battery collector reading real hardware data from
@@ -161,3 +173,64 @@ for tracking checklist-style progress at a glance.
   architecture forks (GUI toolkit choice, web stack choice) and is already
   proceeding through Phase 1 collectors and the initial GitHub push under
   that agreement.
+
+- 2026-09-02: GUI toolkit fork resolved. User chose Tauri (Rust backend
+  plus web frontend) over GTK4/libadwaita and egui/iced, specifically for
+  full pixel level control over the macOS Screen Time look, accepting the
+  tradeoff of less "genuinely native" than GTK. Defaulted to React plus
+  TypeScript for the frontend without a separate question, since that is
+  an implementation detail within the chosen approach rather than a fork
+  with real tradeoffs.
+- Tauri needed sizeable system packages (webkit2gtk-4.1-dev and related)
+  plus npm/cargo downloads. This coincided with being on "SLT HOME" wifi
+  at 11:57pm, 3 minutes before the unmetered midnight-7am window per
+  [[feedback-network-data-caps]]. Flagged size and timing to the user per
+  that rule rather than proceeding; user chose to wait the few minutes for
+  midnight. Installed the apt packages by handing the user the exact sudo
+  command to run themselves in their own terminal, since Claude cannot and
+  should not enter their sudo password.
+- Scaffolded desktop/ as a Tauri + React + TypeScript app (npm create
+  tauri-app). Rather than duplicating database query logic, desktop/src-tauri
+  depends on the daemon crate via a local path dependency and reuses the
+  exact same db module functions the CLI uses (one source of truth for
+  reads). Extracted a shared time_util module (today/week/month start
+  timestamps, a Period enum) into the daemon lib, used by both the CLI's
+  --period flag and the desktop app's period selector, rather than
+  duplicating that date math a third time.
+- Built the initial UI: macOS style design (rounded cards, soft shadows,
+  system font stack, light/dark via prefers-color-scheme), a period
+  segmented control (Today/Week/Month/All Time), a Screen Time style app
+  usage list with proportional bars, a quick stats row, and a Nerd Mode
+  toggle revealing raw data tables, per the user's earlier explicit request
+  for a non-technical default view plus a detailed toggle. Verified the
+  frontend structurally via a browser preview of the Vite dev server
+  (Tauri's invoke() naturally fails outside the real app, confirmed via
+  console/accessibility tree that this fails gracefully into the existing
+  error banner rather than crashing) and then, since this session has a
+  real display (WAYLAND_DISPLAY/DISPLAY confirmed set), actually launched
+  the real native Tauri window on the user's screen with `npm run tauri
+  dev` to verify the genuine article rather than only the web approximation.
+
+- 2026-09-02, user request: "i dont want records of the cpu, memory usage
+  and all. only battery, screen time." See the updated Goal section above
+  for the full reasoning captured at the time. Asked one clarifying round
+  (keep idle/lock/suspend since it supports screen time accuracy: yes;
+  remove code and data, not just disable: yes) before acting, per
+  [[feedback-teacher-mode]]'s emphasis on evaluating requests rather than
+  silently complying, but this was a legitimate straightforward scope cut
+  so it did not warrant pushback, only clarification of edges.
+  Removed: daemon/src/collectors/system.rs and disk_io.rs entirely, their
+  Cargo.toml dependency (sysinfo), their db.rs structs/functions/tables
+  (added explicit DROP TABLE IF EXISTS statements to schema.sql so the
+  already-collected data is actually deleted from existing local databases
+  on next daemon start, not just stopped from growing further), their
+  main.rs collectors/intervals/select! branches, their CLI subcommands,
+  their Tauri commands, and their frontend types/API calls/UI (QuickStats
+  component deleted and replaced with a simpler BatteryCard, since a
+  3-column stats grid did not make sense with only one stat left in it;
+  NerdPanel's System and Disk I/O table sections removed).
+  Verified: daemon and desktop/src-tauri both build clean after the
+  removal, frontend type-checks clean, and the live running `tauri dev`
+  process (still running from the earlier launch) picked up the changes
+  via its file watcher and rebuilt successfully, confirmed by reading its
+  log and the running process id.

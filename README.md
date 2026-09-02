@@ -1,9 +1,8 @@
 # scremetime
 
 A system activity tracker for Linux. The goal is something like macOS
-Screen Time, but for Linux, and going further: app usage over time,
-battery consumption, and general system activity, all stored locally on
-your own machine.
+Screen Time, but for Linux: how much time you spend in each app and your
+battery history, stored locally on your own machine.
 
 This project is under active development and is not yet ready for
 everyday use. See ROADMAP.md for what is planned and what is already
@@ -13,7 +12,7 @@ working.
 
 Linux does not have a good built in equivalent to the screen time and
 battery history tools that exist on macOS and iOS. This project is an
-attempt to build one properly: efficient, detailed, and fully local, with
+attempt to build one properly: efficient, focused, and fully local, with
 no data leaving your machine unless you choose to export it yourself.
 
 It is also a personal project I am building and documenting openly as
@@ -23,19 +22,27 @@ anyone who wants it.
 ## Current status
 
 The project is being built in phases. Phase 1, the background data
-collection daemon, is in progress.
+collection daemon, is essentially complete. Phase 2, a native desktop
+app, is in progress.
 
 Working so far:
 - A Rust daemon that collects battery statistics (charge percentage,
   charging state, power draw, time to empty or full) directly from Linux
   battery hardware information
-- CPU and memory usage collection
+- App level focus tracking (which app you are using and for how long),
+  via a companion GNOME Shell extension
+- Idle time and screen lock or suspend and resume detection, so screen
+  time accounting can account for when you have stepped away
 - All collected data is written to a local SQLite database with
   restrictive file permissions so only your own user account can read it
+- A desktop app (Tauri plus React) showing daily, weekly, monthly, and
+  all time app usage and battery status, with a "Nerd Mode" toggle to
+  see the underlying raw data
 
-Not yet built: app level focus tracking, idle time and lock or suspend
-detection, disk I/O tracking, the desktop interface, the web dashboard,
-and the system tray widget. Full detail is in ROADMAP.md.
+Deliberately out of scope: CPU, memory, and disk I/O tracking were built
+and then removed. This project is about screen time and battery, not a
+general system resource monitor. Not yet built: the web dashboard and
+the system tray widget. Full detail is in ROADMAP.md.
 
 ## Why Rust
 
@@ -96,11 +103,27 @@ daemon keeps running.
 A small CLI reads from the same database:
 
 ```
-cargo run --bin scremetime -- apps
+cargo run --bin scremetime -- apps --period today
 cargo run --bin scremetime -- battery --limit 10
-cargo run --bin scremetime -- system --limit 10
-cargo run --bin scremetime -- disk --limit 10
 cargo run --bin scremetime -- idle
+```
+
+## Desktop app
+
+A native desktop app (Tauri, with a React and TypeScript frontend) reads
+from the same database:
+
+```
+cd desktop
+npm install
+npm run tauri dev
+```
+
+On Debian or Ubuntu based distributions, Tauri needs a few system
+packages first:
+
+```
+sudo apt-get install -y libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev libgtk-3-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 ```
 
 ## Data and privacy

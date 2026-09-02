@@ -21,16 +21,6 @@ CREATE TABLE IF NOT EXISTS battery_samples (
 );
 CREATE INDEX IF NOT EXISTS idx_battery_time ON battery_samples(timestamp);
 
--- CPU and memory: polled at an interval
-CREATE TABLE IF NOT EXISTS system_samples (
-    id INTEGER PRIMARY KEY,
-    timestamp INTEGER NOT NULL,
-    cpu_percent REAL NOT NULL,
-    mem_used_bytes INTEGER NOT NULL,
-    mem_total_bytes INTEGER NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_system_time ON system_samples(timestamp);
-
 -- Idle time and power state transitions: one row per event, not polled
 CREATE TABLE IF NOT EXISTS idle_events (
     id INTEGER PRIMARY KEY,
@@ -39,13 +29,10 @@ CREATE TABLE IF NOT EXISTS idle_events (
 );
 CREATE INDEX IF NOT EXISTS idx_idle_time ON idle_events(timestamp);
 
--- Disk I/O per process: polled at an interval
-CREATE TABLE IF NOT EXISTS disk_io_samples (
-    id INTEGER PRIMARY KEY,
-    timestamp INTEGER NOT NULL,
-    pid INTEGER NOT NULL,
-    process_name TEXT NOT NULL,
-    read_bytes INTEGER NOT NULL,
-    write_bytes INTEGER NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_disk_time ON disk_io_samples(timestamp);
+-- Explicitly drop tables from a prior version of the schema. This runs
+-- every startup alongside the CREATE TABLE statements above; DROP TABLE
+-- IF EXISTS is a no-op once the tables are gone, so this is safe to leave
+-- in place rather than requiring anyone who already has the old schema to
+-- run a separate migration step.
+DROP TABLE IF EXISTS system_samples;
+DROP TABLE IF EXISTS disk_io_samples;
