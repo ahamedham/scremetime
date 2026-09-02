@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Battery, BatteryCharging, BatteryFull } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import {
   ChartConfig,
@@ -26,6 +27,21 @@ const chartConfig = {
     color: "var(--chart-1)",
   },
 } satisfies ChartConfig;
+
+/** Icon and label for the simple charging status, no wattage. Mirrors the
+ * plain charging/not charging distinction of iOS's Battery settings
+ * screen: a bolt when actively charging, a plain outline otherwise, with
+ * "Full" told apart since it means plugged in but done, not unplugged. */
+function chargingStatus(state: string): { Icon: typeof Battery; label: string } {
+  switch (state) {
+    case "Charging":
+      return { Icon: BatteryCharging, label: "Charging" };
+    case "Full":
+      return { Icon: BatteryFull, label: "Fully Charged" };
+    default:
+      return { Icon: Battery, label: state };
+  }
+}
 
 interface Props {
   nerdMode: boolean;
@@ -63,12 +79,16 @@ export default function BatteryPage({ nerdMode }: Props) {
         <p className="text-4xl font-semibold tracking-tight">
           {latest ? `${latest.percentage}%` : "No data yet"}
         </p>
-        {latest && (
-          <p className="text-sm text-muted-foreground capitalize">
-            {latest.state}
-            {latest.power_draw_watts != null && ` (${latest.power_draw_watts.toFixed(1)}W)`}
-          </p>
-        )}
+        {latest &&
+          (() => {
+            const { Icon, label } = chargingStatus(latest.state);
+            return (
+              <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Icon className="size-4" />
+                {label}
+              </p>
+            );
+          })()}
       </div>
 
       <div>

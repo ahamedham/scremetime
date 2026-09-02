@@ -359,3 +359,28 @@ for tracking checklist-style progress at a glance.
   sidebar. Not on SLT HOME wifi during this work (on a phone hotspot), so
   the network timing check was moot, but was still checked and reported
   as instructed.
+
+- 2026-09-02: simplified the Battery page's default status line
+  (desktop/src/pages/BatteryPage.tsx) from "Charging (71.2W)" to an icon
+  plus a plain state label, no wattage, referencing iOS's own Battery
+  settings screen (charge graph plus a small charging indicator, no exact
+  wattage on the simple view). The exact wattage was already present in
+  Nerd Mode's raw samples table before this change (a "Power Draw" column
+  already existed there), so nothing needed to move; confirmed this by
+  reading the file before editing rather than assuming it needed adding.
+  Distinguishes "Charging" (bolt icon), "Full" (plugged in but done,
+  labeled "Fully Charged" rather than folding it into "not charging",
+  since that would lose real information the hardware reports), and
+  everything else (plain battery icon, raw state text) rather than
+  collapsing every non-charging state to one label, while still keeping
+  the simple binary bolt-or-not distinction the user asked for at the
+  icon level.
+  No new dependency: BatteryCharging and BatteryFull icons already exist
+  in lucide-react, already a project dependency. Confirmed this before
+  editing rather than assuming, and checked network/time anyway per the
+  prompt's explicit instruction (not on SLT HOME, moot either way).
+  Verified in a browser tab against the live dev server by mocking the
+  Tauri invoke bridge with synthetic Charging/Discharging samples (rather
+  than only trusting the type checker), confirming visually: the simple
+  view shows a bolt icon and "Charging" with no wattage, the chart is
+  unchanged, and Nerd Mode's raw table still shows the exact watt values.
