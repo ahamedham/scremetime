@@ -3,6 +3,8 @@ import "./App.css";
 import { AppSidebar, Page } from "./components/AppSidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import Onboarding from "./components/Onboarding";
+import { hasOnboarded, markOnboarded } from "./lib/onboarding";
 import ScreenTimePage from "./pages/ScreenTimePage";
 import BatteryPage from "./pages/BatteryPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -16,6 +18,18 @@ const PAGE_TITLES: Record<Page, string> = {
 export default function App() {
   const [page, setPage] = useState<Page>("screen-time");
   const [nerdMode, setNerdMode] = useState(false);
+  const [onboarded, setOnboarded] = useState(hasOnboarded());
+
+  if (!onboarded) {
+    return (
+      <Onboarding
+        onComplete={() => {
+          markOnboarded();
+          setOnboarded(true);
+        }}
+      />
+    );
+  }
 
   return (
     <SidebarProvider>

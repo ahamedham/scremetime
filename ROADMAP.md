@@ -51,6 +51,8 @@ frontend), chosen for full control over the visual design.
 - [x] Simple default view for a general audience
 - [x] Nerd mode setting: toggle to reveal the underlying detailed data,
       exact timestamps, and raw sample values
+- [x] First run onboarding screen: explains what the app does, and walks
+      through enabling the GNOME extension if no app usage data exists yet
 - [ ] App icons instead of plain text names
 - [ ] Visual polish pass once the core views are confirmed working end
       to end with real data

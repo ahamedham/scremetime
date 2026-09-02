@@ -234,3 +234,128 @@ for tracking checklist-style progress at a glance.
   process (still running from the earlier launch) picked up the changes
   via its file watcher and rebuilt successfully, confirmed by reading its
   log and the running process id.
+
+- 2026-09-02: user rejected the hand rolled CSS design outright ("the
+  design doesnnt land at all. 0%"), shared a real macOS System Settings
+  Screen Time screenshot as the actual reference, and gave explicit
+  constraints: no cards, everything responsive, use shadcn/ui plus 21st.dev
+  components, and named a specific 21st.dev sidebar registry URL to install.
+  The 21st.dev registry required an account/API key to fetch via the shadcn
+  CLI, which is not something to acquire (creating accounts is off limits);
+  substituted shadcn/ui's own official sidebar component instead, which is
+  the same underlying composable sidebar pattern, no auth needed, explained
+  this substitution to the user rather than silently doing something
+  different from what was asked.
+  Set up Tailwind v4 (native Vite plugin, simpler than v3's PostCS setup)
+  plus shadcn/ui (Nova/neutral preset, base ui primitives) via `npx
+  shadcn@latest init`. Installed sidebar, table, separator, scroll-area,
+  switch, tabs, badge, chart (pulls in recharts), and label components.
+  This was another install outside SLT HOME's free window (7:14am, 14
+  minutes past the 7am cutoff); flagged size (~30-80MB, much smaller than
+  the earlier Tauri system packages) and asked before proceeding, per
+  [[feedback-network-data-caps]]; user chose to proceed rather than wait.
+  Rebuilt the app around a real sidebar layout (Screen Time / Battery /
+  Settings pages, matching the reference's actual navigation structure)
+  using `collapsible="icon"` rather than `collapsible="none"`, specifically
+  because "none" skips the sidebar's built in mobile/offcanvas responsive
+  behavior entirely, which would have violated the user's "everything must
+  be responsive" requirement. Verified this by reading the component
+  source rather than assuming.
+  Added a new daily_usage_totals database query for the weekly bar chart
+  (day by day totals), and caught a real bug in it before it shipped: the
+  first version computed "start of day" in UTC while the GROUP BY used
+  local time, which would have shifted the 7 day window boundary by the
+  timezone offset. Verified and fixed by testing the SQL directly against
+  a Python sqlite3 connection with known synthetic data before wiring it
+  into the app, not just assuming the SQL was correct.
+  Found and fixed a real, confirmed bug via direct DOM/CSS inspection in a
+  browser tab pointed at the live Vite dev server (same content the native
+  Tauri webview renders): the shadcn CLI's default Nova preset is fully
+  monochrome, including --chart-1 (oklch(0.87 0 0), nearly white), which
+  made the recharts bar/area chart lines invisible against the white
+  background, and the sidebar's active-item highlight used the same washed
+  out gray token so the selected nav item barely showed. Fixed by giving
+  the theme's chart-1 through chart-5 tokens real hues and giving the
+  active sidebar item an explicit blue highlight, matching the reference
+  screenshot's blue selected state. Did not chase a separate visual glitch
+  the user's screenshot showed (an icon overlapping the sidebar header
+  text) since it could not be reproduced in a browser test at matching
+  window width; flagged this explicitly to the user rather than silently
+  assuming it was fixed, and asked for a fresh look at the restarted app.
+
+- 2026-09-02: session picked back up after a gap. Found the daemon and the
+  native Tauri window had both stopped running (background processes did
+  not survive the pause), so no data had been collected in the meantime.
+  Restarted both and verified against the git history that the "narrow
+  scope to battery and screen time" work (removing CPU/mem/disk tracking)
+  had already completed and committed cleanly in a part of the session with
+  no visible transcript, rather than assuming either that it was done or
+  that it needed redoing; confirmed by grepping the whole tree for any
+  leftover references and finding only the intentional DROP TABLE
+  statements in schema.sql.
+
+- 2026-09-02: user asked for a prompt-context document to paste into
+  Claude Chat, so future Claude Code sessions can be given short, targeted
+  prompts instead of the user re-explaining the whole project each time
+  (saving session usage). Built as a file in the user's own scratchpad, not
+  committed to this repo, since it is the user's personal workflow tooling
+  rather than project documentation. Core idea: point Claude Chat at
+  SCOPE.md and ROADMAP.md rather than restating their content, since
+  reading two files is cheaper than re-explaining project history in every
+  prompt.
+
+- 2026-09-02: added a first run onboarding screen to the desktop app
+  (desktop/src/components/Onboarding.tsx), following a prompt drafted with
+  the help of the context document above, which demonstrated the intended
+  pattern well: tightly scoped task, explicit constraints, explicit stop
+  condition.
+  User pasted what appeared to be a 21st.dev secret API key in the same
+  message, asking to use it if the referenced component (a sign up screen,
+  for visual style reference only) needed authentication like the sidebar
+  component had. Did not use it: entering API keys or tokens anywhere is
+  off limits regardless of authorization, and the user's own instructions
+  already specified the correct fallback (rebuild with shadcn/ui primitives
+  if 21st.dev needs auth, as was done for the sidebar). Flagged that the
+  key is now exposed in the chat transcript and should be rotated.
+  Confirmed the referenced 21st.dev component does need authentication via
+  the shadcn CLI (same "Authentication required" error as the sidebar
+  earlier), consistent with the pattern that 21st.dev's registry generally
+  needs an account. Viewed the component's public page directly (not
+  through the shadcn CLI registry, which needs auth; the page itself does
+  not) to see the visual style for reference only, per the user's request:
+  a centered, contained, minimal card layout, not a split screen with
+  illustration. Rebuilt that visual language with shadcn/ui's own
+  Button component plus plain Tailwind for the container, dropped all
+  sign up form fields as instructed, and used the onboarding content
+  specified in the prompt instead (what the app does, privacy note, and a
+  conditional GNOME extension setup guide).
+  The onboarding checks whether app usage data already exists via the
+  existing get_app_usage Tauri command (period "all") rather than adding
+  a new backend command, keeping this a frontend only change per the
+  prompt's explicit instruction not to touch the daemon or database. If
+  the query fails for any reason, treats that the same as "no data yet"
+  (shows the setup steps) rather than hiding potentially useful
+  instructions on an error.
+  First run persistence uses a plain localStorage flag
+  (desktop/src/lib/onboarding.ts), which is the Tauri webview's own
+  persistent storage, not shared with the daemon's SQLite database, again
+  keeping this change frontend only as instructed.
+  Found and fixed a real bug while verifying in a browser tab pointed at
+  the live dev server: the onboarding panel's content (especially the
+  GNOME extension steps) can be taller than a shorter window, and the
+  initial layout had no scroll behavior, which would have left the "Get
+  Started" button permanently off screen and unreachable on a small
+  window. Fixed using the standard scrollable centered modal pattern
+  (overflow on the outer fixed layer, min-h-full flex centering on an
+  inner wrapper) rather than the more common but broken
+  items-center-with-overflow approach, which clips the portion of
+  content that would scroll above the centered position. Verified by
+  measuring scrollHeight versus clientHeight and by scripting an actual
+  scroll-to-bottom plus click on the "Get Started" button in a resized
+  browser tab, confirming the flag gets set, the onboarding view
+  unmounts, and it does not reappear on reload.
+  No new dependencies were needed; used components already installed
+  (Button) plus lucide-react's Clock icon, already a dependency via the
+  sidebar. Not on SLT HOME wifi during this work (on a phone hotspot), so
+  the network timing check was moot, but was still checked and reported
+  as instructed.
