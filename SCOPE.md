@@ -384,3 +384,51 @@ for tracking checklist-style progress at a glance.
   than only trusting the type checker), confirming visually: the simple
   view shows a bolt icon and "Charging" with no wattage, the chart is
   unchanged, and Nerd Mode's raw table still shows the exact watt values.
+
+- 2026-09-02: fixed a real data bug reported by the user, the Battery
+  view was showing a wrong, stale charge percentage and state (25 percent
+  Charging, unmoving) that no longer matched the real laptop. First ruled
+  out the previous session's leftover mock/test code by diffing the last
+  commit and rereading the current BatteryPage.tsx: the display change
+  only touched formatting, it still reads straight from the real
+  getBatterySamples() result, nothing hardcoded.
+  Root cause was in the daemon, in
+  daemon/src/collectors/battery.rs's find_battery(). It scans
+  /sys/class/power_supply/* and picks the first entry whose "type" file
+  says "Battery", on the assumption that "type equals Battery" means
+  "this is the laptop's real battery". On this machine an Apple MFi
+  fast-charge USB controller (created when a phone is connected for
+  charging) also registers a power_supply node reporting type "Battery",
+  named apple_mfi_fastcharge_3-5, even though it exposes no "capacity" or
+  "status" file at all since it only tracks charge protocol state, not
+  an actual battery. Linux's fs::read_dir does not return entries in
+  alphabetical order, it returns them in kernel enumeration order, and on
+  this machine that decoy node happened to enumerate before the real
+  BAT0. So find_battery() locked onto the decoy, and
+  read_u64(&bat, "capacity")? failed immediately and silently returned
+  None from read_battery() every single collection cycle. The daemon's
+  main loop logs "could not read battery info from this system" on None
+  and simply skips that cycle's insert, so nothing was written to the
+  database from the moment the phone got connected onward. The Battery
+  view was not displaying wrong live data, it was correctly displaying
+  the last real row from before that point, which grew more stale and
+  more wrong the longer the phone stayed connected.
+  Confirmed all of this end to end before writing any fix: compared
+  cat /sys/class/power_supply/*/status and .../capacity against the
+  database's latest row (25 percent Charging from 35 minutes earlier
+  while the real battery was already at 52 to 56 percent), then read the
+  daemon's own log output and found it printing "could not read battery
+  info from this system" on every tick since the exact timestamp of that
+  last good row.
+  Fix: find_battery() now also requires the candidate directory to have
+  a "capacity" file present, not just the right "type", which filters
+  out charge-protocol-only nodes like the Apple MFi one while still
+  finding BAT0 (or any laptop's real battery) by capability rather than
+  by a hardcoded name. Rebuilt the daemon, restarted it, and confirmed
+  live: fresh rows are now being written every cycle, matching sysfs
+  exactly (56 percent Charging in both the database and
+  /sys/class/power_supply/BAT0), and the "could not read battery info"
+  log line is gone.
+  No new dependency: the fix only uses std::fs and std::path, already in
+  use in that file. Checked network/time per instruction, moot either
+  way since nothing needed downloading.

@@ -11,12 +11,23 @@ pub struct BatteryReading {
 
 /// Finds the battery under /sys/class/power_supply/. Linux names it BAT0
 /// on most laptops but not all, so we look for the device whose "type"
-/// file says "Battery" rather than hardcoding a name.
+/// file says "Battery" rather than hardcoding a name. Directory iteration
+/// order here is kernel enumeration order, not alphabetical, so this
+/// cannot assume the real battery is found first.
+///
+/// A "type" of "Battery" is not sufficient on its own: some USB charging
+/// controllers (observed here with an Apple MFi fast-charge controller,
+/// created when a phone is connected for charging) register a
+/// power_supply node that also reports type "Battery" but exposes no
+/// "capacity" file, since it tracks charge protocol state rather than an
+/// actual battery. Requiring "capacity" to be present filters those out.
 fn find_battery() -> Option<PathBuf> {
     let base = Path::new("/sys/class/power_supply");
     for entry in fs::read_dir(base).ok()?.flatten() {
         let path = entry.path();
-        if read_string(&path, "type").as_deref() == Some("Battery") {
+        if read_string(&path, "type").as_deref() == Some("Battery")
+            && path.join("capacity").is_file()
+        {
             return Some(path);
         }
     }
